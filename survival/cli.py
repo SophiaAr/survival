@@ -18,15 +18,13 @@ def format_output(command: str, args: Dict[str, Any], error: Optional[str], resu
     Returns:
         dict: Standardized output format
     """
-    output = {
+    return {
         "command": command,
         "args": args,
         "executed_at": int(time.time()),
         "errors": error,
+        "result": result
     }
-    if result:
-        output.update(result)
-    return output
 
 def x_search_recent(args: argparse.Namespace) -> None:
     """Search for recent posts on X."""
