@@ -1,13 +1,13 @@
 import os
 import requests
-from typing import Optional
+from typing import Optional, Dict, Any, Tuple, List
 
 def search_recent_posts(
     query: str, 
     max_results: Optional[int] = 10,
     next_token: Optional[str] = None,
     since_id: Optional[str] = None
-) -> dict:
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, Any]]:
     """Search for recent posts on X about a given topic.
     
     Args:
@@ -17,12 +17,10 @@ def search_recent_posts(
         since_id: Only return posts newer than this post ID
     
     Returns:
-        dict: The API response containing the search results and pagination metadata
-              The metadata includes:
-              - next_token: Token for the next page (if available)
-              - newest_id: ID of the most recent post (useful for polling)
-              - oldest_id: ID of the oldest post in the response
-              - result_count: Number of posts in this response
+        Tuple containing:
+        - data: List of posts matching the query
+        - meta: Pagination metadata including next_token, newest_id, oldest_id, result_count
+        - rate_limit: Rate limit info with limit, remaining, reset (seconds since epoch)
     """
     token = os.environ.get("SURVIVAL_X_API_TOKEN")
     if not token:
@@ -46,4 +44,12 @@ def search_recent_posts(
 
     response = requests.get(url, headers=headers, params=params)
     response.raise_for_status()
-    return response.json() 
+    
+    rate_limit = {
+        "limit": int(response.headers.get("x-rate-limit-limit", 0)),
+        "remaining": int(response.headers.get("x-rate-limit-remaining", 0)),
+        "reset": int(response.headers.get("x-rate-limit-reset", 0))
+    }
+    
+    result = response.json()
+    return result["data"], result["meta"], rate_limit 
