@@ -1,20 +1,38 @@
 import argparse
 import json
+import time
+from typing import Any, Dict
 from . import x
+
+def format_output(command: str, args: Dict[str, Any], result: Any = None, error: str = None) -> Dict[str, Any]:
+    """Format the command output in a standard structure."""
+    return {
+        "command": command,
+        "args": args,
+        "executed_at": int(time.time()),
+        "errors": error,
+        "result": result
+    }
 
 def x_search_recent(args):
     try:
-        results = x.search_recent_posts(
-            args.query, 
+        # Convert args to dict, excluding the func attribute
+        args_dict = {k: v for k, v in vars(args).items() if k != 'func'}
+        
+        result = x.search_recent_posts(
+            args.query,
             max_results=args.max_results,
             next_token=args.next_token,
             since_id=args.since_id
         )
-        print(json.dumps(results, indent=2))
+        
+        output = format_output("x/search-recent", args_dict, result=result)
+        print(json.dumps(output, indent=2))
+        return 0
     except Exception as e:
-        print(f"Error: {e}")
+        output = format_output("x/search-recent", args_dict, error=str(e))
+        print(json.dumps(output, indent=2))
         return 1
-    return 0
 
 def generate_argument_parser():
     parser = argparse.ArgumentParser(description="survival")
