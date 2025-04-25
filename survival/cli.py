@@ -17,21 +17,29 @@ def format_output(command: str, args: Dict[str, Any], result: Any = None, error:
 def x_search_recent(args):
     try:
         # Convert args to dict, excluding the func attribute
-        args_dict = {k: v for k, v in vars(args).items() if k != 'func'}
+        args_dict = {k: v for k, v in vars(args).items() if k != 'func' and k != 'output'}
+        # Join query words with spaces
+        args_dict['query'] = ' '.join(args_dict['query'])
         
         result = x.search_recent_posts(
-            args.query,
+            args_dict['query'],
             max_results=args.max_results,
             next_token=args.next_token,
             since_id=args.since_id
         )
         
         output = format_output("x/search-recent", args_dict, result=result)
-        print(json.dumps(output, indent=2))
+        if args.output:
+            json.dump(output, args.output)
+        else:
+            print(json.dumps(output))
         return 0
     except Exception as e:
         output = format_output("x/search-recent", args_dict, error=str(e))
-        print(json.dumps(output, indent=2))
+        if args.output:
+            json.dump(output, args.output)
+        else:
+            print(json.dumps(output))
         return 1
 
 def generate_argument_parser():
@@ -57,10 +65,11 @@ def generate_argument_parser():
         2. Use the newest_id from response metadata as since_id in next poll
         """
     )
-    search_parser.add_argument("query", help="Search query")
+    search_parser.add_argument("query", nargs='+', help="Search query")
     search_parser.add_argument("--max-results", type=int, default=10, help="Maximum number of results (10-100)")
     search_parser.add_argument("--next-token", help="Token for retrieving the next page of results")
     search_parser.add_argument("--since-id", help="Only return posts newer than this post ID")
+    search_parser.add_argument("-o", "--output", type=argparse.FileType("w"), help="Write output to file instead of stdout")
     search_parser.set_defaults(func=x_search_recent)
 
     parser.set_defaults(func=lambda _: parser.print_help())
