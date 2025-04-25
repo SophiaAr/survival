@@ -4,7 +4,12 @@ from . import x
 
 def x_search_recent(args):
     try:
-        results = x.search_recent_posts(args.query, args.max_results)
+        results = x.search_recent_posts(
+            args.query, 
+            max_results=args.max_results,
+            next_token=args.next_token,
+            since_id=args.since_id
+        )
         print(json.dumps(results, indent=2))
     except Exception as e:
         print(f"Error: {e}")
@@ -19,9 +24,25 @@ def generate_argument_parser():
     x_parser = subparsers.add_parser("x", help="X (Twitter) related commands")
     x_subparsers = x_parser.add_subparsers(title="subcommands")
     
-    search_parser = x_subparsers.add_parser("search-recent", help="Search for recent posts on X")
+    search_parser = x_subparsers.add_parser(
+        "search-recent", 
+        help="Search for recent posts on X",
+        description="""
+        Search for recent posts on X with pagination support.
+        
+        For page-by-page navigation:
+        1. Make initial request
+        2. Use the next_token from response metadata for subsequent pages
+        
+        For polling new posts:
+        1. Make initial request
+        2. Use the newest_id from response metadata as since_id in next poll
+        """
+    )
     search_parser.add_argument("query", help="Search query")
     search_parser.add_argument("--max-results", type=int, default=10, help="Maximum number of results (10-100)")
+    search_parser.add_argument("--next-token", help="Token for retrieving the next page of results")
+    search_parser.add_argument("--since-id", help="Only return posts newer than this post ID")
     search_parser.set_defaults(func=x_search_recent)
 
     parser.set_defaults(func=lambda _: parser.print_help())
