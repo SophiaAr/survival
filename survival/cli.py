@@ -18,13 +18,15 @@ def format_output(command: str, args: Dict[str, Any], error: Optional[str], resu
     Returns:
         dict: Standardized output format
     """
-    return {
+    output = {
         "command": command,
         "args": args,
         "executed_at": int(time.time()),
         "errors": error,
-        "result": result
     }
+    if result:
+        output.update(result)
+    return output
 
 def x_search_recent(args: argparse.Namespace) -> None:
     """Search for recent posts on X."""
@@ -39,7 +41,7 @@ def x_search_recent(args: argparse.Namespace) -> None:
         # Call API and destructure the tuple response
         posts, pagination, rate_limit = x.search_recent_posts(query, **args_dict)
         result = {
-            "result": posts,
+            "posts": posts,
             "pagination": pagination,
             "rate_limit": rate_limit
         }
