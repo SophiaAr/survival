@@ -36,8 +36,13 @@ def x_search_recent(args: argparse.Namespace) -> None:
     query = " ".join(args_dict.pop("query"))
     
     try:
-        # Call API
-        result = x.search_recent_posts(query, **args_dict)
+        # Call API and destructure the tuple response
+        posts, pagination, rate_limit = x.search_recent_posts(query, **args_dict)
+        result = {
+            "result": posts,
+            "pagination": pagination,
+            "rate_limit": rate_limit
+        }
         output = format_output("x/search-recent", args_dict, None, result)
     except Exception as e:
         output = format_output("x/search-recent", args_dict, str(e), None)
