@@ -162,6 +162,65 @@ def x_numfollowers(args: argparse.Namespace) -> None:
     except Exception as e:
         raise RuntimeError(f"Error getting follower count: {str(e)}")
 
+def x_enrich_crawl(args: argparse.Namespace) -> None:
+    """Enrich crawl data with author information."""
+    if not args.input:
+        raise ValueError("--input is required for enrich command")
+    if not args.output:
+        raise ValueError("--output is required for enrich command")
+
+    try:
+        # First pass: collect all unique author IDs
+        author_ids = set()
+        with open(args.input, 'r') as f:
+            for line in f:
+                try:
+                    data = json.loads(line)
+                    if data.get('type') == 'post' and 'author_id' in data.get('data', {}):
+                        author_ids.add(data['data']['author_id'])
+                except json.JSONDecodeError:
+                    continue
+
+        # Batch retrieve user information
+        author_info = {}
+        batch_size = 100  # X API allows up to 100 users per request
+        for i in range(0, len(author_ids), batch_size):
+            batch = list(author_ids)[i:i + batch_size]
+            users, rate_limit = x.get_users_batch(batch)
+            
+            # Store user info by ID
+            for user in users:
+                author_info[user['id']] = {
+                    'follower_count': user.get('public_metrics', {}).get('followers_count'),
+                    'username': user.get('username')
+                }
+            
+            # Print progress
+            print(f"Retrieved info for {len(users)} users (remaining: {rate_limit['remaining']})", file=sys.stderr)
+            
+            # Respect rate limits
+            if rate_limit['remaining'] == 0:
+                reset = rate_limit['reset']
+                print(f"Rate limited, reset at {datetime.fromtimestamp(reset)}", file=sys.stderr)
+                time.sleep(max(0, reset - time.time()) + 1)
+
+        # Second pass: enrich the data
+        with open(args.input, 'r') as infile, open(args.output, 'w') as outfile:
+            for line in infile:
+                try:
+                    data = json.loads(line)
+                    if data.get('type') == 'post':
+                        author_id = data['data'].get('author_id')
+                        if author_id in author_info:
+                            data['data']['author_data'] = author_info[author_id]
+                    outfile.write(json.dumps(data) + '\n')
+                except json.JSONDecodeError:
+                    continue
+
+        print(f"Successfully enriched data with info for {len(author_info)} authors", file=sys.stderr)
+    except Exception as e:
+        raise RuntimeError(f"Error enriching data: {str(e)}")
+
 def generate_argument_parser():
     parser = argparse.ArgumentParser(description="survival")
     subparsers = parser.add_subparsers(title="commands")
@@ -239,6 +298,21 @@ def generate_argument_parser():
     numfollowers_parser.add_argument("--username", action="store_true", help="Treat identifier as username instead of ID")
     numfollowers_parser.add_argument("--pretty", action="store_true", help="Pretty print the output")
     numfollowers_parser.set_defaults(func=x_numfollowers)
+
+    enrich_parser = x_subparsers.add_parser(
+        "enrich",
+        help="Enrich crawl data with author information",
+        description="""
+        Enrich crawl data with author information like follower counts.
+        Processes the entire file in two passes:
+        1. Collects all unique author IDs
+        2. Retrieves author information in batches
+        3. Enriches the data with author info
+        """
+    )
+    enrich_parser.add_argument("--input", type=str, required=True, help="Input JSONL file from crawl")
+    enrich_parser.add_argument("--output", type=str, required=True, help="Output JSONL file path")
+    enrich_parser.set_defaults(func=x_enrich_crawl)
 
     parser.set_defaults(func=lambda _: parser.print_help())
     return parser
