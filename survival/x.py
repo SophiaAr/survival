@@ -175,3 +175,45 @@ def get_follower_count(identifier: str, by_username: bool = False) -> Tuple[Dict
         raise ValueError(f"No user found with {'username' if by_username else 'ID'}: {identifier}")
     
     return users[0], rate_limit 
+
+def get_users_batch(user_ids: List[str]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Get information for multiple users in a single request.
+    
+    Args:
+        user_ids: List of user IDs to look up
+        
+    Returns:
+        Tuple containing:
+        - users: List of user data including follower counts
+        - rate_limit: Rate limit info with limit, remaining, reset (seconds since epoch)
+        
+    Raises:
+        ValueError: If SURVIVAL_X_API_TOKEN is not set
+        requests.exceptions.HTTPError: If API request fails
+    """
+    token = os.environ.get("SURVIVAL_X_API_TOKEN")
+    if not token:
+        raise ValueError("SURVIVAL_X_API_TOKEN environment variable not set")
+
+    url = "https://api.twitter.com/2/users"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    
+    # Join IDs with commas and request public metrics
+    params = {
+        "ids": ",".join(user_ids),
+        "user.fields": "public_metrics,username"
+    }
+
+    response = requests.get(url, headers=headers, params=params)
+    response.raise_for_status()
+    
+    rate_limit = {
+        "limit": int(response.headers.get("x-rate-limit-limit", 0)),
+        "remaining": int(response.headers.get("x-rate-limit-remaining", 0)),
+        "reset": int(response.headers.get("x-rate-limit-reset", 0))
+    }
+    
+    result = response.json()
+    return result.get("data", []), rate_limit 
