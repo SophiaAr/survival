@@ -31,8 +31,8 @@ def format_output(command: str, query: str, args: Dict[str, Any], error: Optiona
 
 def x_search_recent(args: argparse.Namespace) -> None:
     """Search for recent posts on X."""
-    args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output")}
-    output_path = args.output
+    args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "outfile")}
+    output_path = args.outfile
     
     query = " ".join(args_dict.pop("query", []))
     pretty = args_dict.pop("pretty", False)
@@ -63,11 +63,11 @@ def x_search_recent(args: argparse.Namespace) -> None:
 
 def x_crawl(args: argparse.Namespace) -> None:
     """Crawl recent posts on X, paginating through all available results."""
-    if not args.output:
-        raise ValueError("--output is required for crawl command")
+    if not args.outfile:
+        raise ValueError("--outfile is required for crawl command")
     
     # Convert args to dict
-    args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output", "query", "previous")}
+    args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "outfile", "query", "previous")}
     query = " ".join(args.query)
     
     # If --previous is specified, get continuation parameters
@@ -95,7 +95,7 @@ def x_crawl(args: argparse.Namespace) -> None:
             raise RuntimeError(f"Error reading previous file: {str(e)}")
     
     # Open output file
-    with open(args.output, "a") as f:
+    with open(args.outfile, "a") as f:
         # Start crawling
         for posts, pagination, rate_limit in x.crawl(
             query=query,
