@@ -6,7 +6,7 @@ from . import x
 import sys
 from datetime import datetime
 
-def format_output(command: str, args: Dict[str, Any], error: Optional[str], result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def format_output(command: str, query: str, args: Dict[str, Any], error: Optional[str], result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Format command output in a standard structure.
     
     Args:
@@ -20,6 +20,7 @@ def format_output(command: str, args: Dict[str, Any], error: Optional[str], resu
     """
     return {
         "command": command,
+        "query": query,
         "args": args,
         "executed_at": int(time.time()),
         "errors": error,
@@ -28,31 +29,35 @@ def format_output(command: str, args: Dict[str, Any], error: Optional[str], resu
 
 def x_search_recent(args: argparse.Namespace) -> None:
     """Search for recent posts on X."""
-    # Convert args to dict and extract output path
     args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output")}
     output_path = args.output
     
-    # Extract and join query
-    query = " ".join(args_dict.pop("query"))
+    query = " ".join(args_dict.pop("query", []))
+    pretty = args_dict.pop("pretty", False)
     
     try:
-        # Call API and destructure the tuple response
         posts, pagination, rate_limit = x.search_recent_posts(query, **args_dict)
         result = {
             "posts": posts,
             "pagination": pagination,
             "rate_limit": rate_limit
         }
-        output = format_output("x/search-recent", args_dict, None, result)
+        output = format_output("x/search-recent", query, args_dict, None, result)
     except Exception as e:
-        output = format_output("x/search-recent", args_dict, str(e), None)
+        output = format_output("x/search-recent", query, args_dict, str(e), None)
     
-    # Write output
     if output_path:
-        with open(output_path, "w") as f:
-            json.dump(output, f)
+        if pretty:
+            with open(output_path, "w") as f:
+                json.dump(output, f, indent=4, sort_keys=True)
+        else:
+            with open(output_path, "w") as f:
+                json.dump(output, f)
     else:
-        print(json.dumps(output, indent=2))
+        if pretty:
+            print(json.dumps(output, indent=4, sort_keys=True))
+        else:
+            print(json.dumps(output))
 
 def generate_argument_parser():
     parser = argparse.ArgumentParser(description="survival")
@@ -81,6 +86,7 @@ def generate_argument_parser():
     search_parser.add_argument("--next-token", help="Token for retrieving the next page of results")
     search_parser.add_argument("--since-id", help="Only return posts newer than this post ID")
     search_parser.add_argument("-o", "--output", type=str, help="Write output to file instead of stdout")
+    search_parser.add_argument("--pretty", action="store_true", help="Pretty print the output")
     search_parser.set_defaults(func=x_search_recent)
 
     parser.set_defaults(func=lambda _: parser.print_help())
