@@ -4,6 +4,26 @@ import json
 import csv
 from typing import List, Dict, Any
 
+def flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '_') -> Dict[str, Any]:
+    """Flatten a nested dictionary.
+    
+    Args:
+        d: Dictionary to flatten
+        parent_key: Key of the parent dictionary
+        sep: Separator to use between nested keys
+        
+    Returns:
+        Flattened dictionary
+    """
+    items = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
 def jsonl_to_csv(input_path: str, output_path: str) -> int:
     """Convert a JSONL file containing posts to CSV format.
     
@@ -29,6 +49,8 @@ def jsonl_to_csv(input_path: str, output_path: str) -> int:
                         post = data.get('data', {})
                         # Add X.com link
                         post['x_link'] = f"https://x.com/i/web/status/{post.get('id')}"
+                        # Flatten the post data
+                        post = flatten_dict(post)
                         posts.append(post)
                 except json.JSONDecodeError:
                     continue
