@@ -212,7 +212,7 @@ def x_enrich_crawl(args: argparse.Namespace) -> None:
                     if data.get('type') == 'post':
                         author_id = data['data'].get('author_id')
                         if author_id in author_info:
-                            data['data']['author_data'] = author_info[author_id]
+                            data['author_data'] = author_info[author_id]
                     outfile.write(json.dumps(data) + '\n')
                 except json.JSONDecodeError:
                     continue
@@ -299,7 +299,7 @@ def generate_argument_parser():
     numfollowers_parser.add_argument("--pretty", action="store_true", help="Pretty print the output")
     numfollowers_parser.set_defaults(func=x_numfollowers)
 
-    enrich_parser = x_subparsers.add_parser(
+    enrich_parser = subparsers.add_parser(
         "enrich",
         help="Enrich crawl data with author information",
         description="""
