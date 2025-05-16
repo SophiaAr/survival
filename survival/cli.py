@@ -3,6 +3,7 @@ import json
 import time
 from typing import Any, Dict, Optional, List
 from . import x
+from . import format
 import sys
 from datetime import datetime
 from tqdm import tqdm
@@ -30,35 +31,31 @@ def format_output(command: str, query: str, args: Dict[str, Any], error: Optiona
 
 def x_search_recent(args: argparse.Namespace) -> None:
     """Search for recent posts on X."""
+    # Convert args to dict and extract output path
     args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output")}
     output_path = args.output
     
-    query = " ".join(args_dict.pop("query", []))
-    pretty = args_dict.pop("pretty", False)
+    # Extract and join query
+    query = " ".join(args_dict.pop("query"))
     
     try:
+        # Call API
         posts, pagination, rate_limit = x.search_recent_posts(query, **args_dict)
         result = {
             "posts": posts,
             "pagination": pagination,
             "rate_limit": rate_limit
         }
-        output = format_output("x/search-recent", query, args_dict, None, result)
+        output = format.format_output("x/search-recent", query, args_dict, None, result)
     except Exception as e:
-        output = format_output("x/search-recent", query, args_dict, str(e), None)
+        output = format.format_output("x/search-recent", query, args_dict, str(e), None)
     
+    # Write output
     if output_path:
-        if pretty:
-            with open(output_path, "w") as f:
-                json.dump(output, f, indent=4, sort_keys=True)
-        else:
-            with open(output_path, "w") as f:
-                json.dump(output, f)
+        with open(output_path, "w") as f:
+            json.dump(output, f)
     else:
-        if pretty:
-            print(json.dumps(output, indent=4, sort_keys=True))
-        else:
-            print(json.dumps(output))
+        print(json.dumps(output, indent=2))
 
 def x_crawl(args: argparse.Namespace) -> None:
     """Crawl recent posts on X, paginating through all available results."""
@@ -68,14 +65,38 @@ def x_crawl(args: argparse.Namespace) -> None:
     
     # Convert args to dict
     args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output", "query")}
+    query = " ".join(args.query)
     
-    # Start crawling
-    for result in x.crawl(
-        query=" ".join(args.query),
-        output_path=args.output,
-        **args_dict
-    ):
-        pass  # Results are written to file by the crawl function
+    # Open output file
+    with open(args.output, "a") as f:
+        # Start crawling
+        for posts, pagination, rate_limit in x.crawl(
+            query=query,
+            **args_dict
+        ):
+            # Write crawl metadata
+            crawl_msg = {
+                "type": "crawl_step",
+                "timestamp": int(time.time()),
+                "pagination": pagination,
+                "rate_limit": rate_limit
+            }
+            f.write(json.dumps(crawl_msg) + "\n")
+            
+            # Write each post
+            for post in posts:
+                post_msg = {
+                    "type": "post",
+                    "timestamp": int(time.time()),
+                    "data": post
+                }
+                f.write(json.dumps(post_msg) + "\n")
+            
+            # Print progress to stderr
+            print(f"Found {len(posts)} posts (total: {pagination.get('result_count', 0)})", file=sys.stderr)
+            if rate_limit.get("remaining", 0) == 0:
+                reset = rate_limit.get("reset", 0)
+                print(f"Rate limited, reset at {datetime.fromtimestamp(reset)}", file=sys.stderr)
 
 def generate_argument_parser():
     parser = argparse.ArgumentParser(description="survival")
