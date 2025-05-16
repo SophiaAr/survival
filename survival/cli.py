@@ -127,13 +127,13 @@ def x_crawl(args: argparse.Namespace) -> None:
 
 def x_dump_crawl(args: argparse.Namespace) -> None:
     """Convert a crawl JSONL file to CSV format with X.com links."""
-    if not args.input:
-        raise ValueError("--input is required for dump command")
-    if not args.output:
-        raise ValueError("--output is required for dump command")
+    if not args.infile:
+        raise ValueError("--infile is required for dump command")
+    if not args.outfile:
+        raise ValueError("--outfile is required for dump command")
 
     try:
-        num_posts = convert.jsonl_to_csv(args.input, args.output)
+        num_posts = convert.jsonl_to_csv(args.infile, args.outfile)
         print(f"Successfully converted {num_posts} posts to CSV", file=sys.stderr)
     except Exception as e:
         raise RuntimeError(f"Error processing file: {str(e)}")
@@ -164,15 +164,15 @@ def x_numfollowers(args: argparse.Namespace) -> None:
 
 def x_enrich_crawl(args: argparse.Namespace) -> None:
     """Enrich crawl data with author information."""
-    if not args.input:
-        raise ValueError("--input is required for enrich command")
-    if not args.output:
-        raise ValueError("--output is required for enrich command")
+    if not args.infile:
+        raise ValueError("--infile is required for enrich command")
+    if not args.outfile:
+        raise ValueError("--outfile is required for enrich command")
 
     try:
         # First pass: collect all unique author IDs
         author_ids = set()
-        with open(args.input, 'r') as f:
+        with open(args.infile, 'r') as f:
             for line in f:
                 try:
                     data = json.loads(line)
@@ -205,7 +205,7 @@ def x_enrich_crawl(args: argparse.Namespace) -> None:
                 time.sleep(max(0, reset - time.time()) + 1)
 
         # Second pass: enrich the data
-        with open(args.input, 'r') as infile, open(args.output, 'w') as outfile:
+        with open(args.infile, 'r') as infile, open(args.outfile, 'w') as outfile:
             for line in infile:
                 try:
                     data = json.loads(line)
@@ -247,7 +247,7 @@ def generate_argument_parser():
     search_parser.add_argument("--max-results", type=int, default=10, help="Maximum number of results (10-100)")
     search_parser.add_argument("--next-token", help="Token for retrieving the next page of results")
     search_parser.add_argument("--since-id", help="Only return posts newer than this post ID")
-    search_parser.add_argument("-o", "--output", type=str, help="Write output to file instead of stdout")
+    search_parser.add_argument("-o", "--outfile", type=str, help="Write output to file instead of stdout")
     search_parser.add_argument("--pretty", action="store_true", help="Pretty print the output")
     search_parser.set_defaults(func=x_search_recent)
 
@@ -263,7 +263,7 @@ def generate_argument_parser():
         """
     )
     crawl_parser.add_argument("query", nargs='+', help="Search query")
-    crawl_parser.add_argument("--output", type=str, required=True, help="Output JSONL file path")
+    crawl_parser.add_argument("--outfile", type=str, required=True, help="Output JSONL file path")
     crawl_parser.add_argument("--max-results", type=int, default=100, help="Maximum results per request (10-100)")
     crawl_parser.add_argument("--next-token", help="Token for retrieving the next page of results")
     crawl_parser.add_argument("--since-id", help="Only return posts newer than this post ID")
@@ -282,8 +282,8 @@ def generate_argument_parser():
         Adds X.com links for each post.
         """
     )
-    dump_crawl_parser.add_argument("--input", type=str, required=True, help="Input JSONL file from crawl")
-    dump_crawl_parser.add_argument("--output", type=str, required=True, help="Output CSV file path")
+    dump_crawl_parser.add_argument("--infile", type=str, required=True, help="Input JSONL file from crawl")
+    dump_crawl_parser.add_argument("--outfile", type=str, required=True, help="Output CSV file path")
     dump_crawl_parser.set_defaults(func=x_dump_crawl)
 
     numfollowers_parser = x_subparsers.add_parser(
@@ -310,8 +310,8 @@ def generate_argument_parser():
         3. Enriches the data with author info
         """
     )
-    enrich_parser.add_argument("--input", type=str, required=True, help="Input JSONL file from crawl")
-    enrich_parser.add_argument("--output", type=str, required=True, help="Output JSONL file path")
+    enrich_parser.add_argument("--infile", type=str, required=True, help="Input JSONL file from crawl")
+    enrich_parser.add_argument("--outfile", type=str, required=True, help="Output JSONL file path")
     enrich_parser.set_defaults(func=x_enrich_crawl)
 
     parser.set_defaults(func=lambda _: parser.print_help())
