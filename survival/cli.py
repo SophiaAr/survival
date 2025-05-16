@@ -30,15 +30,13 @@ def format_output(command: str, query: str, args: Dict[str, Any], error: Optiona
 
 def x_search_recent(args: argparse.Namespace) -> None:
     """Search for recent posts on X."""
-    # Convert args to dict and extract output path
     args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output")}
     output_path = args.output
     
-    # Extract and join query
-    query = " ".join(args_dict.pop("query"))
+    query = " ".join(args_dict.pop("query", []))
+    pretty = args_dict.pop("pretty", False)
     
     try:
-        # Call API
         posts, pagination, rate_limit = x.search_recent_posts(query, **args_dict)
         result = {
             "posts": posts,
@@ -49,12 +47,18 @@ def x_search_recent(args: argparse.Namespace) -> None:
     except Exception as e:
         output = format_output("x/search-recent", query, args_dict, str(e), None)
     
-    # Write output
     if output_path:
-        with open(output_path, "w") as f:
-            json.dump(output, f)
+        if pretty:
+            with open(output_path, "w") as f:
+                json.dump(output, f, indent=4, sort_keys=True)
+        else:
+            with open(output_path, "w") as f:
+                json.dump(output, f)
     else:
-        print(json.dumps(output, indent=2))
+        if pretty:
+            print(json.dumps(output, indent=4, sort_keys=True))
+        else:
+            print(json.dumps(output))
 
 def x_crawl(args: argparse.Namespace) -> None:
     """Crawl recent posts on X, paginating through all available results."""
