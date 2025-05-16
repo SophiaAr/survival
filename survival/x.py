@@ -5,7 +5,6 @@ import json
 import sys
 from typing import Optional, Dict, Any, Tuple, List, Iterator
 from tqdm import tqdm
-from . import format
 
 def search_recent_posts(
     query: str, 

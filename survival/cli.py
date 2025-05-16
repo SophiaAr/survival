@@ -3,7 +3,6 @@ import json
 import time
 from typing import Any, Dict, Optional, List
 from . import x
-from . import format
 import sys
 from datetime import datetime
 from tqdm import tqdm
@@ -46,9 +45,9 @@ def x_search_recent(args: argparse.Namespace) -> None:
             "pagination": pagination,
             "rate_limit": rate_limit
         }
-        output = format.format_output("x/search-recent", query, args_dict, None, result)
+        output = format_output("x/search-recent", query, args_dict, None, result)
     except Exception as e:
-        output = format.format_output("x/search-recent", query, args_dict, str(e), None)
+        output = format_output("x/search-recent", query, args_dict, str(e), None)
     
     # Write output
     if output_path:
