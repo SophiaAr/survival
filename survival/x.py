@@ -1,6 +1,10 @@
 import os
 import requests
-from typing import Optional, Dict, Any, Tuple, List
+import time
+import json
+import sys
+from typing import Optional, Dict, Any, Tuple, List, Iterator
+from tqdm import tqdm
 
 def search_recent_posts(
     query: str, 
@@ -53,3 +57,79 @@ def search_recent_posts(
     
     result = response.json()
     return result["data"], result["meta"], rate_limit 
+
+def crawl(
+    query: str,
+    output_path: str,
+    max_results: Optional[int] = 100,
+    next_token: Optional[str] = None,
+    since_id: Optional[str] = None,
+    delay: int = 10
+) -> Iterator[Dict[str, Any]]:
+    """Crawl recent posts on X, paginating through all available results.
+    
+    Args:
+        query: The search query
+        output_path: Path to write JSONL output
+        max_results: Maximum number of results per request (default: 100)
+        next_token: Token for retrieving the next page of results
+        since_id: Only return posts newer than this post ID
+        delay: Seconds to wait between requests (default: 10)
+        
+    Yields:
+        Dict containing the response data for each request
+    """
+    total_posts = 0
+    
+    with tqdm(desc="Crawling posts", unit="posts") as pbar:
+        while True:
+            try:
+                # Make API request
+                posts, pagination, rate_limit = search_recent_posts(
+                    query,
+                    max_results=max_results,
+                    next_token=next_token,
+                    since_id=since_id
+                )
+                
+                # Write response to JSONL file
+                result = {
+                    "posts": posts,
+                    "pagination": pagination,
+                    "rate_limit": rate_limit
+                }
+                
+                with open(output_path, "a") as f:
+                    f.write(json.dumps(result) + "\n")
+                
+                # Update progress
+                total_posts += len(posts)
+                pbar.update(len(posts))
+                pbar.set_postfix({"total": total_posts})
+                
+                # Update pagination
+                if newest_id := pagination.get("newest_id"):
+                    since_id = newest_id
+                if next_token := pagination.get("next_token"):
+                    next_token = next_token
+                else:
+                    next_token = None
+                
+                # Check rate limits and sleep
+                remaining = rate_limit.get("remaining", 0)
+                reset = rate_limit.get("reset", 0)
+                
+                if remaining == 0:
+                    sleep_time = (reset - time.time()) + 10
+                    pbar.set_description(f"Rate limited, waiting {sleep_time:.0f}s")
+                    time.sleep(sleep_time)
+                else:
+                    pbar.set_description(f"Waiting {delay}s between requests")
+                    time.sleep(delay)
+                
+                yield result
+                    
+            except Exception as e:
+                print(f"Error: {str(e)}", file=sys.stderr)
+                time.sleep(delay)  # Still respect delay on error
+                continue 

@@ -5,6 +5,7 @@ from typing import Any, Dict, Optional, List
 from . import x
 import sys
 from datetime import datetime
+from tqdm import tqdm
 
 def format_output(command: str, query: str, args: Dict[str, Any], error: Optional[str], result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Format command output in a standard structure.
@@ -59,6 +60,23 @@ def x_search_recent(args: argparse.Namespace) -> None:
         else:
             print(json.dumps(output))
 
+def x_crawl(args: argparse.Namespace) -> None:
+    """Crawl recent posts on X, paginating through all available results."""
+    if not args.output:
+        print("Error: --output is required for crawl command", file=sys.stderr)
+        sys.exit(1)
+    
+    # Convert args to dict
+    args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output", "query")}
+    
+    # Start crawling
+    for result in x.crawl(
+        query=" ".join(args.query),
+        output_path=args.output,
+        **args_dict
+    ):
+        pass  # Results are written to file by the crawl function
+
 def generate_argument_parser():
     parser = argparse.ArgumentParser(description="survival")
     subparsers = parser.add_subparsers(title="commands")
@@ -88,6 +106,22 @@ def generate_argument_parser():
     search_parser.add_argument("-o", "--output", type=str, help="Write output to file instead of stdout")
     search_parser.add_argument("--pretty", action="store_true", help="Pretty print the output")
     search_parser.set_defaults(func=x_search_recent)
+
+    crawl_parser = x_subparsers.add_parser(
+        "crawl",
+        help="Crawl recent posts on X",
+        description="""
+        Crawl recent posts on X, paginating through all available results.
+        Results are written to a JSONL file, one response per line.
+        """
+    )
+    crawl_parser.add_argument("query", nargs='+', help="Search query")
+    crawl_parser.add_argument("--output", type=str, required=True, help="Output JSONL file path")
+    crawl_parser.add_argument("--max-results", type=int, default=100, help="Maximum results per request (10-100)")
+    crawl_parser.add_argument("--next-token", help="Token for retrieving the next page of results")
+    crawl_parser.add_argument("--since-id", help="Only return posts newer than this post ID")
+    crawl_parser.add_argument("--delay", type=int, default=10, help="Seconds to wait between requests")
+    crawl_parser.set_defaults(func=x_crawl)
 
     parser.set_defaults(func=lambda _: parser.print_help())
     return parser
