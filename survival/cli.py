@@ -6,6 +6,7 @@ from . import x
 import sys
 from datetime import datetime
 from tqdm import tqdm
+from . import convert
 
 def format_output(command: str, query: str, args: Dict[str, Any], error: Optional[str], result: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """Format command output in a standard structure.
@@ -124,6 +125,19 @@ def x_crawl(args: argparse.Namespace) -> None:
                 reset = rate_limit.get("reset", 0)
                 print(f"Rate limited, reset at {datetime.fromtimestamp(reset)}", file=sys.stderr)
 
+def x_dump_crawl(args: argparse.Namespace) -> None:
+    """Convert a crawl JSONL file to CSV format with X.com links."""
+    if not args.input:
+        raise ValueError("--input is required for dump command")
+    if not args.output:
+        raise ValueError("--output is required for dump command")
+
+    try:
+        num_posts = convert.jsonl_to_csv(args.input, args.output)
+        print(f"Successfully converted {num_posts} posts to CSV", file=sys.stderr)
+    except Exception as e:
+        raise RuntimeError(f"Error processing file: {str(e)}")
+
 def generate_argument_parser():
     parser = argparse.ArgumentParser(description="survival")
     subparsers = parser.add_subparsers(title="commands")
@@ -173,6 +187,21 @@ def generate_argument_parser():
     crawl_parser.add_argument("--delay", type=int, default=10, help="Seconds to wait between requests")
     crawl_parser.add_argument("--previous", type=str, help="Previous JSONL file to continue from")
     crawl_parser.set_defaults(func=x_crawl)
+
+    dump_parser = subparsers.add_parser("dump", help="Dump data in various formats")
+    dump_subparsers = dump_parser.add_subparsers(title="subcommands")
+
+    dump_crawl_parser = dump_subparsers.add_parser(
+        "crawl",
+        help="Convert crawl JSONL to CSV",
+        description="""
+        Convert a crawl JSONL file to CSV format.
+        Adds X.com links for each post.
+        """
+    )
+    dump_crawl_parser.add_argument("--input", type=str, required=True, help="Input JSONL file from crawl")
+    dump_crawl_parser.add_argument("--output", type=str, required=True, help="Output CSV file path")
+    dump_crawl_parser.set_defaults(func=x_dump_crawl)
 
     parser.set_defaults(func=lambda _: parser.print_help())
     return parser
