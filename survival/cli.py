@@ -63,12 +63,35 @@ def x_search_recent(args: argparse.Namespace) -> None:
 def x_crawl(args: argparse.Namespace) -> None:
     """Crawl recent posts on X, paginating through all available results."""
     if not args.output:
-        print("Error: --output is required for crawl command", file=sys.stderr)
-        sys.exit(1)
+        raise ValueError("--output is required for crawl command")
     
     # Convert args to dict
-    args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output", "query")}
+    args_dict = {k: v for k, v in vars(args).items() if v is not None and k not in ("func", "output", "query", "previous")}
     query = " ".join(args.query)
+    
+    # If --previous is specified, get continuation parameters
+    if args.previous:
+        try:
+            # Read the file to find the last crawl_step message
+            last_crawl_step = None
+            with open(args.previous, 'r') as f:
+                for line in f:
+                    try:
+                        data = json.loads(line)
+                        if data.get('type') == 'crawl_step':
+                            last_crawl_step = data
+                    except json.JSONDecodeError:
+                        continue  # Skip invalid JSON lines
+                
+                if not last_crawl_step:
+                    raise ValueError("No crawl_step messages found in previous file")
+                
+                pagination = last_crawl_step.get('pagination', {})
+                args_dict['since_id'] = pagination.get('newest_id')
+                args_dict['next_token'] = pagination.get('next_token')
+                
+        except Exception as e:
+            raise RuntimeError(f"Error reading previous file: {str(e)}")
     
     # Open output file
     with open(args.output, "a") as f:
@@ -137,6 +160,9 @@ def generate_argument_parser():
         description="""
         Crawl recent posts on X, paginating through all available results.
         Results are written to a JSONL file, one response per line.
+        
+        To continue a previous crawl, use --previous to specify the last JSONL file.
+        The command will automatically extract the continuation parameters.
         """
     )
     crawl_parser.add_argument("query", nargs='+', help="Search query")
@@ -145,6 +171,7 @@ def generate_argument_parser():
     crawl_parser.add_argument("--next-token", help="Token for retrieving the next page of results")
     crawl_parser.add_argument("--since-id", help="Only return posts newer than this post ID")
     crawl_parser.add_argument("--delay", type=int, default=10, help="Seconds to wait between requests")
+    crawl_parser.add_argument("--previous", type=str, help="Previous JSONL file to continue from")
     crawl_parser.set_defaults(func=x_crawl)
 
     parser.set_defaults(func=lambda _: parser.print_help())
@@ -153,7 +180,11 @@ def generate_argument_parser():
 def main():
     parser = generate_argument_parser()
     args = parser.parse_args()
-    return args.func(args)
+    try:
+        return args.func(args)
+    except Exception as e:
+        print(f"Error: {str(e)}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
