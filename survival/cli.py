@@ -138,6 +138,30 @@ def x_dump_crawl(args: argparse.Namespace) -> None:
     except Exception as e:
         raise RuntimeError(f"Error processing file: {str(e)}")
 
+def x_numfollowers(args: argparse.Namespace) -> None:
+    """Get follower count for a user by ID or username."""
+    try:
+        user_data, rate_limit = x.get_follower_count(args.identifier, args.username)
+        
+        # Format output
+        output = {
+            "user": {
+                "id": user_data.get("id"),
+                "username": user_data.get("username"),
+                "name": user_data.get("name"),
+                "followers_count": user_data.get("public_metrics", {}).get("followers_count")
+            },
+            "rate_limit": rate_limit
+        }
+        
+        if args.pretty:
+            print(json.dumps(output, indent=4, sort_keys=True))
+        else:
+            print(json.dumps(output))
+            
+    except Exception as e:
+        raise RuntimeError(f"Error getting follower count: {str(e)}")
+
 def generate_argument_parser():
     parser = argparse.ArgumentParser(description="survival")
     subparsers = parser.add_subparsers(title="commands")
@@ -202,6 +226,19 @@ def generate_argument_parser():
     dump_crawl_parser.add_argument("--input", type=str, required=True, help="Input JSONL file from crawl")
     dump_crawl_parser.add_argument("--output", type=str, required=True, help="Output CSV file path")
     dump_crawl_parser.set_defaults(func=x_dump_crawl)
+
+    numfollowers_parser = x_subparsers.add_parser(
+        "numfollowers",
+        help="Get follower count for a user",
+        description="""
+        Get follower count for a user by ID or username.
+        Returns user data including follower count and rate limit info.
+        """
+    )
+    numfollowers_parser.add_argument("identifier", help="User ID or username")
+    numfollowers_parser.add_argument("--username", action="store_true", help="Treat identifier as username instead of ID")
+    numfollowers_parser.add_argument("--pretty", action="store_true", help="Pretty print the output")
+    numfollowers_parser.set_defaults(func=x_numfollowers)
 
     parser.set_defaults(func=lambda _: parser.print_help())
     return parser

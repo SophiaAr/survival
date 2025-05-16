@@ -121,3 +121,57 @@ def crawl(
                 print(f"Error: {str(e)}", file=sys.stderr)
                 time.sleep(delay)  # Still respect delay on error
                 continue 
+
+def get_follower_count(identifier: str, by_username: bool = False) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Get follower count for a user by ID or username.
+    
+    Args:
+        identifier: Either author_id or username
+        by_username: If True, identifier is treated as username, otherwise as author_id
+        
+    Returns:
+        Tuple containing:
+        - user_data: User data including follower count
+        - rate_limit: Rate limit info with limit, remaining, reset (seconds since epoch)
+        
+    Raises:
+        ValueError: If SURVIVAL_X_API_TOKEN is not set
+        requests.exceptions.HTTPError: If API request fails
+    """
+    token = os.environ.get("SURVIVAL_X_API_TOKEN")
+    if not token:
+        raise ValueError("SURVIVAL_X_API_TOKEN environment variable not set")
+
+    url = "https://api.twitter.com/2/users"
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    
+    # Build query parameter based on identifier type
+    if by_username:
+        params = {
+            "usernames": identifier,
+            "user.fields": "public_metrics"
+        }
+    else:
+        params = {
+            "ids": identifier,
+            "user.fields": "public_metrics"
+        }
+
+    response = requests.get(url, headers=headers, params=params)
+    response.raise_for_status()
+    
+    rate_limit = {
+        "limit": int(response.headers.get("x-rate-limit-limit", 0)),
+        "remaining": int(response.headers.get("x-rate-limit-remaining", 0)),
+        "reset": int(response.headers.get("x-rate-limit-reset", 0))
+    }
+    
+    result = response.json()
+    users = result.get("data", [])
+    
+    if not users:
+        raise ValueError(f"No user found with {'username' if by_username else 'ID'}: {identifier}")
+    
+    return users[0], rate_limit 
