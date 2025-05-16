@@ -49,6 +49,9 @@ def jsonl_to_csv(input_path: str, output_path: str) -> int:
                         post = data.get('data', {})
                         # Add X.com link
                         post['x_link'] = f"https://x.com/i/web/status/{post.get('id')}"
+                        # Add author data if present
+                        if 'author_data' in data:
+                            post['author_data'] = data['author_data']
                         # Flatten the post data
                         post = flatten_dict(post)
                         posts.append(post)
